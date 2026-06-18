@@ -93,7 +93,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Layout em colunas simula a barra lateral esquerda e o conteúdo principal
+# Layout em colunas simula a barra lateral e o conteúdo principal
 col1, col2 = st.columns([1, 3])
 
 with col1:
@@ -140,7 +140,77 @@ with col2:
             selected_title = st.selectbox("Selecione a faixa que deseja processar:", list(video_dict.keys()))
             selected_url = video_dict[selected_title]
             
-            # Card de visualização do item selecionado
-            st.markdown(f"""
+            # Card de visualização estruturado sem usar f-string tripla combinada com chaves CSS
+            card_html = f"""
                 <div class="spotify-card">
                     <p style="color: #B3B3B3; text-transform: uppercase; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-bottom: 5px;">Faixa Selecionada</p>
+                    <h3 style="color: #FFFFFF; margin: 0; font-size: 20px;">{selected_title}</h3>
+                    <p style="color: #1DB954; font-size: 14px; margin-top: 5px;">Disponível para conversão imediata</p>
+                </div>
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
+            
+            # Escolha do formato (Opções horizontais simulam botões de filtro)
+            format_choice = st.radio("Escolha o formato de saída:", ("MP3 (Apenas Áudio)", "MP4 (Vídeo com Som)"), horizontal=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Botão para iniciar o download (Estilo botão de Play do Spotify)
+            if st.button("Iniciar Conversão"):
+                with st.spinner("A processar streams de áudio e vídeo..."):
+                    
+                    for f in glob.glob("downloaded_file.*"):
+                        try:
+                            os.remove(f)
+                        except:
+                            pass
+                    
+                    if format_choice == "MP3 (Apenas Áudio)":
+                        ydl_opts = {
+                            'format': 'bestaudio/best',
+                            'outtmpl': 'downloaded_file.%(ext)s',
+                            'postprocessors': [{
+                                'key': 'FFmpegExtractAudio',
+                                'preferredcodec': 'mp3',
+                                'preferredquality': '192',
+                            }],
+                            'noplaylist': True,
+                        }
+                        file_ext = "mp3"
+                        mime_type = "audio/mpeg"
+                    else:
+                        ydl_opts = {
+                            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                            'outtmpl': 'downloaded_file.%(ext)s',
+                            'merge_output_format': 'mp4',
+                            'noplaylist': True,
+                        }
+                        file_ext = "mp4"
+                        mime_type = "video/mp4"
+                    
+                    try:
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                            ydl.download([selected_url])
+                        
+                        actual_file = glob.glob(f"downloaded_file.{file_ext}")
+                        if not actual_file and file_ext == "mp4":
+                            actual_file = glob.glob("downloaded_file.mkv")
+                        
+                        if actual_file:
+                            target_file = actual_file[0]
+                            final_ext = target_file.split(".")[-1]
+                            
+                            with open(target_file, "rb") as file:
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                st.download_button(
+                                    label=f"📥 Baixar .{final_ext.upper()}",
+                                    data=file,
+                                    file_name=f"{selected_title}.{final_ext}",
+                                    mime=mime_type
+                                )
+                        else:
+                            st.error("Não foi possível localizar o ficheiro convertido.")
+                    except Exception as e:
+                        st.error(f"Erro no processamento: {e}")
+        else:
+            st.warning("Nenhum conteúdo foi localizado nesta URL. Verifique se o canal é público.")
