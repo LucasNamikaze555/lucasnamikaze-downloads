@@ -52,8 +52,19 @@ with col2:
             try:
                 info = ydl.extract_info(url, download=False)
                 if 'entries' in info:
-                    return [(entry.get('title'), f"https://www.youtube.com/watch?v={entry.get('url')}") 
-                            for entry in info['entries'] if entry]
+                    lista_videos = []
+                    for entry in info['entries']:
+                        if entry:
+                            title = entry.get('title')
+                            video_url = entry.get('url')
+                            
+                            # Tratamento para evitar URLs duplicadas ou malformadas
+                            if video_url:
+                                if "youtube.com" not in video_url and "youtu.be" not in video_url:
+                                    video_url = f"https://www.youtube.com/watch?v={video_url}"
+                                
+                                lista_videos.append((title, video_url))
+                    return lista_videos
                 return []
             except Exception as e:
                 st.error(f"Erro ao acessar o canal: {e}")
@@ -91,7 +102,7 @@ with col2:
                     status_texto.markdown(f"**Processando ({index + 1}/{total_itens}):** *{title}*")
                     progresso_barra.progress((index + 1) / total_itens)
                     
-                    # Normaliza o nome do arquivo para evitar caracteres ilegais no Linux/Windows
+                    # Normaliza o nome do arquivo para evitar caracteres ilegais
                     clean_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
                     out_tmpl = f"{pasta_download}/{clean_title}.%(ext)s"
                     
