@@ -28,6 +28,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Definição de cabeçalhos padrão para camuflar o robô
+HEADERS_PADRAO = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Sec-Fetch-Mode': 'navigate',
+}
+
 col1, col2 = st.columns([1, 3])
 
 with col1:
@@ -47,6 +55,8 @@ with col2:
         ydl_opts = {
             'extract_flat': 'in_playlist',
             'skip_download': True,
+            'http_headers': HEADERS_PADRAO,
+            'no_check_certificate': True,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
@@ -58,7 +68,6 @@ with col2:
                             title = entry.get('title')
                             video_url = entry.get('url')
                             
-                            # Tratamento para evitar URLs duplicadas ou malformadas
                             if video_url:
                                 if "youtube.com" not in video_url and "youtu.be" not in video_url:
                                     video_url = f"https://www.youtube.com/watch?v={video_url}"
@@ -106,29 +115,33 @@ with col2:
                     clean_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
                     out_tmpl = f"{pasta_download}/{clean_title}.%(ext)s"
                     
+                    # Configuração base contra bloqueios 403
+                    ydl_base_opts = {
+                        'outtmpl': out_tmpl,
+                        'noplaylist': True,
+                        'quiet': True,
+                        'http_headers': HEADERS_PADRAO,
+                        'no_check_certificate': True,
+                        'rm_cached_metadata': True, # Limpa o cache interno do yt-dlp por vídeo
+                    }
+                    
                     if format_choice == "MP3 (Apenas Áudio)":
-                        ydl_opts = {
+                        ydl_base_opts.update({
                             'format': 'bestaudio/best',
-                            'outtmpl': out_tmpl,
                             'postprocessors': [{
                                 'key': 'FFmpegExtractAudio',
                                 'preferredcodec': 'mp3',
                                 'preferredquality': '192',
                             }],
-                            'noplaylist': True,
-                            'quiet': True,
-                        }
+                        })
                     else:
-                        ydl_opts = {
+                        ydl_base_opts.update({
                             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-                            'outtmpl': out_tmpl,
                             'merge_output_format': 'mp4',
-                            'noplaylist': True,
-                            'quiet': True,
-                        }
+                        })
                     
                     try:
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        with yt_dlp.YoutubeDL(ydl_base_opts) as ydl:
                             ydl.download([url])
                     except Exception as e:
                         st.warning(f"Aviso: Falha ao converter a faixa '{title}'. Pulando para a próxima... Erro: {e}")
